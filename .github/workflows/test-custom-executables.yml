@@ -6,7 +6,26 @@ on:
   workflow_call:
 
 jobs:
+  check-api-key:
+    name: Check for API key
+    runs-on: ubuntu-latest
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      # Every job below drives the real action against the Anthropic API, so with no key there is nothing to exercise and a red check would say the code is broken when it was never run. A fork does not inherit the secret, and adding one here is the repository owner's decision.
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test-custom-executables:
+    needs: check-api-key
+    if: needs.check-api-key.outputs.has_key == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
