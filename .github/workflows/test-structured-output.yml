@@ -9,7 +9,26 @@ permissions:
   contents: read
 
 jobs:
+  check-api-key:
+    name: Check for API key
+    runs-on: ubuntu-latest
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      # Every job below drives the real action against the Anthropic API, so with no key there is nothing to exercise and a red check would say the code is broken when it was never run. A fork does not inherit the secret, and adding one here is the repository owner's decision.
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test-basic-types:
+    needs: check-api-key
+    if: needs.check-api-key.outputs.has_key == 'true'
     name: Test Basic Type Conversions
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +88,8 @@ jobs:
           echo "✅ All basic type conversions correct"
 
   test-complex-types:
+    needs: check-api-key
+    if: needs.check-api-key.outputs.has_key == 'true'
     name: Test Arrays and Objects
     runs-on: ubuntu-latest
     steps:
@@ -120,6 +141,8 @@ jobs:
           echo "✅ All complex types handled correctly"
 
   test-edge-cases:
+    needs: check-api-key
+    if: needs.check-api-key.outputs.has_key == 'true'
     name: Test Edge Cases
     runs-on: ubuntu-latest
     steps:
@@ -179,6 +202,8 @@ jobs:
           echo "✅ All edge cases handled correctly"
 
   test-name-sanitization:
+    needs: check-api-key
+    if: needs.check-api-key.outputs.has_key == 'true'
     name: Test Output Name Sanitization
     runs-on: ubuntu-latest
     steps:
@@ -219,6 +244,8 @@ jobs:
           echo "✅ Name sanitization works"
 
   test-execution-file-structure:
+    needs: check-api-key
+    if: needs.check-api-key.outputs.has_key == 'true'
     name: Test Execution File Format
     runs-on: ubuntu-latest
     steps:
@@ -265,12 +292,13 @@ jobs:
     name: Summary
     runs-on: ubuntu-latest
     needs:
+      - check-api-key
       - test-basic-types
       - test-complex-types
       - test-edge-cases
       - test-name-sanitization
       - test-execution-file-structure
-    if: always()
+    if: always() && needs.check-api-key.outputs.has_key == 'true'
     steps:
       - name: Generate Summary
         run: |
